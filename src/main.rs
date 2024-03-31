@@ -7,7 +7,7 @@ use embryo::{Embryo, EmPair, EmbryoList};
 use serde_json::from_str;
 
 static SEARCH_URL: &str = "https://www.bing.com/search?q=";
-static EXCLUDED_CONTENT: [&str; 3] = ["bing.com", "microsoft.com", "ignalez"];
+static EXCLUDED_CONTENT: [&str; 4] = ["bing.com", "microsoft.com", "ignalez", "bingj.com"];
 
 #[post("/query")]
 async fn query_handler(body: String) -> impl Responder {
