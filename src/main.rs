@@ -55,6 +55,15 @@ fn extract_links_from_results(html: String) -> Vec<Embryo> {
             .map(|elem| elem.text().collect::<Vec<_>>().join(""))
             .unwrap_or_default()
             .trim().to_string();
+        
+        let icon_text = element.select(&Selector::parse(".algoSlug_icon").unwrap())
+            .map(|icon_element| icon_element.text().collect::<String>())
+            .collect::<String>();
+        let news_dt_text = element.select(&Selector::parse(".news_dt").unwrap())
+            .map(|icon_element| icon_element.text().collect::<String>())
+            .collect::<String>();
+
+        let resume = desc.replace(&icon_text, "").replace(&news_dt_text, "").replace(" . ", "");
 
         let embryo = Embryo {
             properties: vec![
@@ -64,7 +73,7 @@ fn extract_links_from_results(html: String) -> Vec<Embryo> {
                 },
                 EmPair {
                     name: "resume".to_string(),
-                    value: desc.to_string(),
+                    value: resume.to_string(),
                 },
             ],
         };
