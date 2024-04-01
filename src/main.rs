@@ -39,31 +39,37 @@ async fn generate_embryo_list(json_string: String) -> Vec<Embryo> {
 fn extract_links_from_results(html: String) -> Vec<Embryo> {
     let mut embryo_list = Vec::new();
     let fragment = Html::parse_document(&html);
-    let selector = Selector::parse("a").unwrap();
+    let selector = Selector::parse("li.b_algo").unwrap();
 
-    for node in fragment.select(&selector) {
-        if let Some(link) = node.value().attr("href") {
-            if EXCLUDED_CONTENT.iter().any(|excluded| link.contains(excluded))
-                || !link.starts_with("http")
-                {
-                    continue;
-                }
+    for element in fragment.select(&selector) {
+        let selector_link = Selector::parse("div a").unwrap();
+        let link = element.select(&selector_link).next().and_then(|elem| elem.value().attr("href")).unwrap_or_default().trim().to_string();
+        if EXCLUDED_CONTENT.iter().any(|excluded| link.contains(excluded))
+            || !link.starts_with("http")
+            {
+                continue;
+            }
+        let selector_desc = Selector::parse("div p").unwrap();
+        let desc = element.select(&selector_desc)
+            .next()
+            .map(|elem| elem.text().collect::<Vec<_>>().join(""))
+            .unwrap_or_default()
+            .trim().to_string();
 
-            let embryo = Embryo {
-                properties: vec![
-                    EmPair {
-                        name: "url".to_string(),
-                        value: link.to_string(),
-                    },
-                    EmPair {
-                        name: "resume".to_string(),
-                        value: format!("Link from search result"),
-                    },
-                ],
-            };
+        let embryo = Embryo {
+            properties: vec![
+                EmPair {
+                    name: "url".to_string(),
+                    value: link.to_string(),
+                },
+                EmPair {
+                    name: "resume".to_string(),
+                    value: desc.to_string(),
+                },
+            ],
+        };
 
-            embryo_list.push(embryo);
-        }
+        embryo_list.push(embryo);
     }
 
     embryo_list
