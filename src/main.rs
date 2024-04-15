@@ -3,8 +3,9 @@ use scraper::{Html, Selector};
 use std::string::String;
 use url::form_urlencoded;
 use reqwest::Client;
-use embryo::{Embryo, EmPair, EmbryoList};
+use embryo::{Embryo, EmbryoList};
 use serde_json::from_str;
+use std::collections::HashMap;
 
 static SEARCH_URL: &str = "https://www.bing.com/search?q=";
 static EXCLUDED_CONTENT: [&str; 4] = ["bing.com", "microsoft.com", "ignalez", "bingj.com"];
@@ -17,8 +18,8 @@ async fn query_handler(body: String) -> impl Responder {
 }
 
 async fn generate_embryo_list(json_string: String) -> Vec<Embryo> {
-    let search: EmPair = from_str(&json_string).expect("Erreur lors de la désérialisation JSON");
-    let encoded_search: String = form_urlencoded::byte_serialize(search.value.as_bytes()).collect();
+    let search: HashMap<String,String> = from_str(&json_string).expect("Erreur lors de la désérialisation JSON");
+    let encoded_search: String = form_urlencoded::byte_serialize(search.values().next().unwrap().as_bytes()).collect();
     let search_url = format!("{}{}", SEARCH_URL, encoded_search);
     println!("{}", search_url);
     let response = Client::new().get(&search_url).send().await;
@@ -66,16 +67,9 @@ fn extract_links_from_results(html: String) -> Vec<Embryo> {
         let resume = desc.replace(&icon_text, "").replace(&news_dt_text, "").replace(" . ", "");
 
         let embryo = Embryo {
-            properties: vec![
-                EmPair {
-                    name: "url".to_string(),
-                    value: link.to_string(),
-                },
-                EmPair {
-                    name: "resume".to_string(),
-                    value: resume.to_string(),
-                },
-            ],
+            properties: HashMap::from([
+                    ("url".to_string(), link.to_string()),
+                    ("resume".to_string(),resume.to_string())])
         };
 
         embryo_list.push(embryo);
