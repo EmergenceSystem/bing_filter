@@ -6,6 +6,7 @@ use reqwest::Client;
 use embryo::{Embryo, EmbryoList};
 use serde_json::from_str;
 use std::collections::HashMap;
+use std::time::{Instant, Duration};
 
 static SEARCH_URL: &str = "https://www.bing.com/search?q=";
 static EXCLUDED_CONTENT: [&str; 4] = ["bing.com", "microsoft.com", "ignalez", "bingj.com"];
@@ -18,8 +19,17 @@ async fn query_handler(body: String) -> impl Responder {
 }
 
 async fn generate_embryo_list(json_string: String) -> Vec<Embryo> {
-    let search: HashMap<String,String> = from_str(&json_string).expect("Erreur lors de la désérialisation JSON");
-    let encoded_search: String = form_urlencoded::byte_serialize(search.values().next().unwrap().as_bytes()).collect();
+    let search: HashMap<String,String> = from_str(&json_string).expect("Can't parse JSON");
+    let value = match search.get("value") {
+        Some(v) => v,
+        None => "",
+    };
+    let timeout : u64 = match search.get("timeout") {
+        Some(t) => t.parse().expect("Can't parse as u64"),
+        None => 10,
+    };
+
+    let encoded_search: String = form_urlencoded::byte_serialize(value.as_bytes()).collect();
     let search_url = format!("{}{}", SEARCH_URL, encoded_search);
     println!("{}", search_url);
     let response = Client::new().get(&search_url).send().await;
@@ -27,7 +37,7 @@ async fn generate_embryo_list(json_string: String) -> Vec<Embryo> {
     match response {
         Ok(response) => {
             if let Ok(body) = response.text().await {
-                let embryo_list = extract_links_from_results(body);
+                let embryo_list = extract_links_from_results(body, timeout);
                 return embryo_list;
             }
         }
@@ -37,12 +47,20 @@ async fn generate_embryo_list(json_string: String) -> Vec<Embryo> {
     Vec::new()
 }
 
-fn extract_links_from_results(html: String) -> Vec<Embryo> {
+fn extract_links_from_results(html: String, timeout_secs: u64) -> Vec<Embryo> {
     let mut embryo_list = Vec::new();
     let fragment = Html::parse_document(&html);
     let selector = Selector::parse("li.b_algo").unwrap();
 
+    let start_time = Instant::now();
+    let timeout = Duration::from_secs(timeout_secs);
+
     for element in fragment.select(&selector) {
+
+        if start_time.elapsed() >= timeout {
+            return embryo_list;
+        }
+
         let selector_link = Selector::parse("div a").unwrap();
         let link = element.select(&selector_link).next().and_then(|elem| elem.value().attr("href")).unwrap_or_default().trim().to_string();
         if EXCLUDED_CONTENT.iter().any(|excluded| link.contains(excluded))
